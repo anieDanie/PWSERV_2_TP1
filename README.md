@@ -1,2 +1,1 @@
-# PWSERV_2_TP1
-TP1 - Rapide et Dangereux (Développement Web - Serveur)
+TP1 - Rapide et dangereux (Développement Web - Serveur)

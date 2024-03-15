@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Application Client</title>
+
+    <!-- leafletjs: https://leafletjs.com/examples/quick-start/ -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""/>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""></script>
+
+    <style>
+        #map { height: 180px; }
+
+        table , td, th {
+        	border: 1px solid #595959;
+        	border-collapse: collapse;
+        }
+        td, th {
+            padding: 3px;
+            width: 30px;
+            height: 25px;
+        }
+        th {
+            background: #f0e6cc;
+        }
+        .even {
+            background: #fbf8f0;
+        }
+        .odd {
+            background: #fefcf9;
+        }
+
+        .center {
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .tables-container {
+            display: flex;
+            align-items: center;
+        }
+    </style>
+
+</head>
+<body>
+    <h1>Données sur les collisions routières de Ville de Montréal</h1>
+
+    <p> Latitude: <span id="lat"></span><br>
+        Longitude: <span id="lon"></span><br>
+        Lieu de l'incident routier: <span id="venueOfEvent"></span></p>
+
+    <div id="map"></div><br>
+
+    <div class="center">
+
+        <div class="tables-container">
+            <table class="center">
+                <tbody>
+                    <tr>
+                        <td colspan="2">Statistiques - portrait général</td>
+                    </tr>
+                    <tr>
+                        <td>Nombre total de victimes</td>
+                        <td id="desc-1"></td>
+                    </tr>
+                    <tr>
+                        <td>Jour de la semaine</td>
+                        <td id="desc-2"></td>
+                    </tr>
+                    <tr>
+                        <td>Condition météorologique </td>
+                        <td id="desc-3"></td>
+                    </tr>
+                    <tr>
+                        <td>Condition de la chaussée</td>
+                        <td id="desc-4"></td>
+                    </tr>
+                    <tr>
+                        <td>Condition d'éclairement</td>
+                        <td id="desc-5"></td>
+                    </tr>
+                </tbody>
+            </table>
+    
+            <table class="center">
+                <tbody>
+                    <tr>
+                        <td colspan="2">Statistiques - Décès</td>
+                    </tr>
+                    <tr>
+                        <td>Nombre de décès</td>
+                        <td id="agg-1"></td>
+                    </tr>
+                    <tr>
+                        <td>Victimes décédées (moyenne)</td>
+                        <td id="agg-2"></td>
+                    </tr>
+                    <tr>
+                        <td>Piétons décédés (moyenne)</td>
+                        <td id="agg-3"></td>
+                    </tr>
+                    <tr>
+                        <td>Motocyclistes décédés (moyenne)</td>
+                        <td id="agg-4"></td>
+                    </tr>
+                    <tr>
+                        <td>Cyclistes décédés (moyenne)</td>
+                        <td id="agg-5"></td>
+                    </tr>
+                </tbody>
+            </table>        
+
+        </div>
+
+    </div>
+
+    <script>
+
+        const map = L.map('map').setView([0, 0], 1);
+        const attribution = 
+            '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>';
+        
+        const tileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';    
+        const tiles = L.tileLayer(tileUrl, { attribution });
+        tiles.addTo(map);
+
+        const marker = L.marker([0, 0]).addTo(map);
+
+        fetch('/villeMontrealApi')
+            .then( (response) => {
+                return response.json();
+            })
+            .then( (json) => {
+                console.log(json); // server's msg: source of data
+            } )
+            .then ( () => {
+                
+                // ALL
+                fetch ('/all')
+                    .then( (response) => {
+                        return response.json();
+                    })
+                    .then( (json) => {
+                        console.log('AFFICHAGE DES DONNÉES OBTENUES - API Ville Montréal (CAS-1)', json);
+                    } ) 
+                    .catch ( (err) => {
+                        console.log('request /all failed', err);
+                    } )               
+                    
+                // CARTE
+                fetch ('/mostRecentRI')
+                    .then( (response) => {
+                        return response.json();
+                    })
+                    .then( (json) => {                        
+                        const { LOC_LAT, LOC_LONG, RUE_ACCDN } = json;
+
+                        document.getElementById('lat').textContent = LOC_LAT.toFixed(2);
+                        document.getElementById('lon').textContent = LOC_LONG.toFixed(2);
+                        document.getElementById('venueOfEvent').textContent = RUE_ACCDN;
+
+                        marker.setLatLng([LOC_LAT, LOC_LONG]);
+                        map.setView([LOC_LAT, LOC_LONG], 16); // Sans ZOOM: valeur 0; présentement ZOOM = 16                        
+                    })
+                    .catch( (err) => {
+                        console.log('request /mostRecentRI failed', err);
+                    })
+
+                // DESC-1
+                fetch('/totalNumberOfVictims')
+                    .then( (response) => {
+                        return response.json();
+                    } )
+                    .then( (json) => {
+                        const { totalNumberOfVictims } = json;
+
+                        document.getElementById('desc-1').textContent = totalNumberOfVictims;
+                    })
+                    .catch( (err) => {
+                        console.log('request totalNumberOfVictim failed', err);
+                    } )
+
+                // DESC-2
+                fetch('/mostFrequentDayOfWeek')
+                    .then( (response) => {
+                        return response.json();
+                    } )
+                    .then( (json) => {
+                        const { mostFrequentDayOfWeek } = json;
+
+                        document.getElementById('desc-2').textContent = mostFrequentDayOfWeek;                        
+                    })
+                    .catch( (err) => {
+                        console.log('mostFrequentDayOfWeek', err);
+                    } )   
+
+                // DESC-3
+                fetch('/mostFrequentMeteoCondition')
+                    .then( (response) => {
+                        return response.json();
+                    } )
+                    .then( (json) => {
+                        const { meteo } = json;
+
+                        document.getElementById('desc-3').textContent = meteo;                                                 
+                    })
+                    .catch( (err) => {
+                        console.log('request mostFrequentMeteoCondition failed', err);
+                    } )   
+                    
+                // DESC-4
+                fetch('/mostFrequentSurfaceCondition')
+                    .then( (response) => {
+                        return response.json();
+                    } )
+                    .then( (json) => { 
+                        const { surface } = json;
+
+                        document.getElementById('desc-4').textContent = surface;                         
+                    })
+                    .catch( (err) => {
+                        console.log('request mostFrequentSurfaceCondition failed', err);
+                    } ) 
+
+                // DESC-5
+                fetch('/mostFrequentIlluminationConditions')
+                    .then( (response) => {
+                        return response.json();
+                    } )
+                    .then( (json) => {
+                        const { illumination } = json;
+
+                        document.getElementById('desc-5').textContent = illumination;                         
+                    })
+                    .catch( (err) => {
+                        console.log('request mostFrequentIlluminationConditions failed', err);
+                    } )   
+                    
+                // AGG-1
+                fetch('/numberOfDeceasedVictims')
+                    .then( (response) => {
+                        return response.json();
+                    } )
+                    .then( (json) => {
+                        const { numberOfDeceasedVictims } = json;                        
+
+                        document.getElementById('agg-1').textContent = numberOfDeceasedVictims;                        
+                    })
+                    .catch( (err) => {
+                        console.log('request numberOfDeceasedVictims failed', err);
+                    } )  
+
+                // AGG-2
+                fetch('/deceasedVictimsAverageValue')
+                    .then( (response) => {
+                        return response.json();
+                    } )
+                    .then( (json) => { 
+                        const { deceasedVictimsAverageValue } = json;
+
+                        document.getElementById('agg-2').textContent = deceasedVictimsAverageValue;                        
+                    })
+                    .catch( (err) => {
+                        console.log('request deceasedVictimsAverageValue failed', err);
+                    } )     
+                    
+                // AGG-3
+                fetch('/pedestrianVictimsAverageValue')
+                    .then( (response) => {
+                        return response.json();
+                    } )
+                    .then( (json) => {
+                        const { pedestrianVictimsAverageValue } = json;
+
+                        document.getElementById('agg-3').textContent = pedestrianVictimsAverageValue;                         
+                    })
+                    .catch( (err) => {
+                        console.log('request pedestrianVictimsAverageValue failed', err);
+                    } )  
+                    
+                // AGG-4
+                fetch('/motorcyclistVictimsAverageValue')
+                    .then( (response) => {
+                        return response.json();
+                    } )
+                    .then( (json) => {
+                        const { motorcyclistVictimsAverageValue } = json;
+
+                        document.getElementById('agg-4').textContent = motorcyclistVictimsAverageValue;                         
+                    })
+                    .catch( (err) => {
+                        console.log('request motorcyclistVictimsAverageValue failed', err);
+                    } )   
+                    
+                // AGG-5
+                fetch('/cyclistVictimsAverageValue')
+                    .then( (response) => {
+                        return response.json();
+                    } )
+                    .then( (json) => {
+                        const { cyclistVictimsAverageValue } = json;
+
+                        document.getElementById('agg-5').textContent = cyclistVictimsAverageValue;                         
+                    })
+                    .catch( (err) => {
+                        console.log('request cyclistVictimsAverageValue failed', err);
+                    } )                     
+
+            // FIN success fetch VilleMontrealApi_URL        
+            })
+            .catch( (err) => {
+                console.log('API CALL failed', err);
+            })
+               
+
+    </script>
+</body>
+</html>
